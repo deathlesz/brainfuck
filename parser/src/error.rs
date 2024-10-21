@@ -1,7 +1,24 @@
-#[derive(Debug, Clone, thiserror::Error)]
-pub enum ParsingError {
-    #[error("bracket at {0} is not closed")]
+use std::fmt::Display;
+
+#[derive(Debug, Clone)]
+pub enum UnbalancedBrackets {
     UnclosedBracket(usize),
-    #[error("bracket at {0} doesn't have a corresponding opening bracket")]
     UnopenedBracket(usize),
 }
+
+impl Display for UnbalancedBrackets {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use UnbalancedBrackets::*;
+
+        match self {
+            UnclosedBracket(pos) => {
+                write!(f, "expected ']' to close '[' at position {}, got EOF", pos)
+            }
+            UnopenedBracket(pos) => {
+                write!(f, "unexpected ']' at position {}", pos)
+            }
+        }
+    }
+}
+
+impl std::error::Error for UnbalancedBrackets {}

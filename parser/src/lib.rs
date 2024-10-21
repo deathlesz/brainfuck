@@ -1,4 +1,4 @@
-pub use error::ParsingError;
+pub use error::UnbalancedBrackets;
 pub use instruction::Instruction;
 
 mod error;
@@ -21,7 +21,7 @@ impl Parser {
         }
     }
 
-    pub fn parse(mut self) -> Result<Vec<Instruction>, ParsingError> {
+    pub fn parse(mut self) -> Result<Vec<Instruction>, UnbalancedBrackets> {
         while let Some(byte) = self.next() {
             let token = match byte {
                 b'+' => self.parse_add(1),
@@ -37,19 +37,19 @@ impl Parser {
                 }
                 b']' => {
                     if let Some((idx, _)) = self.jump_stack.pop() {
-                        if let Some(token) = self.try_parse_clear() {
-                            token
-                        } else if let Some(token) = self.try_parse_add_to() {
-                            token
-                        } else if let Some(token) = self.try_parse_move_until_0() {
-                            token
+                        if let Some(clear) = self.try_parse_clear() {
+                            clear
+                        } else if let Some(add_to) = self.try_parse_add_to() {
+                            add_to
+                        } else if let Some(move_until) = self.try_parse_move_until_0() {
+                            move_until
                         } else {
                             self.tokens[idx] = Instruction::JumpIfZero(self.tokens.len());
 
                             Instruction::JumpIfNotZero(idx)
                         }
                     } else {
-                        return Err(ParsingError::UnopenedBracket(self.idx - 1));
+                        return Err(UnbalancedBrackets::UnopenedBracket(self.idx - 1));
                     }
                 }
                 _ => continue,
@@ -59,7 +59,7 @@ impl Parser {
         }
 
         if let Some((_, idx)) = self.jump_stack.pop() {
-            return Err(ParsingError::UnclosedBracket(idx));
+            return Err(UnbalancedBrackets::UnclosedBracket(idx));
         }
 
         Ok(self.tokens)
@@ -108,6 +108,7 @@ impl Parser {
         }
     }
 
+    #[cfg(feature = "optimize_add_to")]
     fn try_parse_add_to(&mut self) -> Option<Instruction> {
         use Instruction::*;
 
@@ -122,6 +123,17 @@ impl Parser {
         }
     }
 
+    #[cfg(not(feature = "optimize_add_to"))]
+    fn try_parse_add_to(&mut self) -> Option<Instruction> {
+        None
+    }
+
+    #[cfg(not(feature = "optimize_move_until"))]
+    fn try_parse_move_until_0(&mut self) -> Option<Instruction> {
+        None
+    }
+
+    #[cfg(feature = "optimize_move_until")]
     fn try_parse_move_until_0(&mut self) -> Option<Instruction> {
         use Instruction::*;
 

@@ -4,4 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-thiserror = "1.0"
+
+[features]
+default = ["optimize_add_to", "optimize_move_until"]
+optimize_add_to = []
+optimize_move_until = []
