@@ -1,4 +1,4 @@
-use color_eyre::Result;
+use color_eyre::{eyre::Context as _, Result};
 
 use dynasmrt::{dynasm, mmap::MutableBuffer, DynasmApi as _, DynasmLabelApi as _};
 use parser::Instruction;
@@ -14,7 +14,7 @@ impl<const N: i32> Compiler<N> {
     }
 
     pub fn run(self) -> Result<()> {
-        let mut ops = dynasmrt::x64::Assembler::new()?;
+        let mut ops = dynasmrt::x64::Assembler::new().wrap_err("failed to allocate memory")?;
 
         // r12 will be the address of `memory`
         // r13 will be the value of `pointer`
@@ -65,7 +65,7 @@ impl<const N: i32> Compiler<N> {
                     ; mov rax, QWORD Self::read as *const () as i64
                     ; lea rdi, [r12 + r13]
                     ; call rax
-                    ; cmp rax, 0 // test rax, rax ???
+                    ; test rax,rax
                     ; jne ->exit
                 },
                 Out => dynasm! { ops
@@ -73,7 +73,7 @@ impl<const N: i32> Compiler<N> {
                     ; mov rax, QWORD Self::write as *const () as i64
                     ; mov rdi, [r12 + r13]
                     ; call rax
-                    ; cmp rax, 0
+                    ; test rax,rax
                     ; jne ->exit
                 },
                 JumpIfZero(_) => {
@@ -171,14 +171,15 @@ impl<const N: i32> Compiler<N> {
             ; ret
         };
 
-        let code = ops.finalize().unwrap();
-        let mut buffer = MutableBuffer::new(code.len()).unwrap();
+        let code = ops.finalize().unwrap(); // should never fail
+        let mut buffer = MutableBuffer::new(code.len()).wrap_err("failed to allocate memory")?;
         buffer.set_len(code.len());
 
         buffer.copy_from_slice(&code);
 
-        let buffer = buffer.make_exec().unwrap();
-
+        let buffer = buffer
+            .make_exec()
+            .wrap_err("failed to make memory executable")?;
         let mut memory = [0u8; 30_000];
         unsafe {
             let code_fn: unsafe extern "sysv64" fn(*mut u8) -> *mut std::io::Error =
