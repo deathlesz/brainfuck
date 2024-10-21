@@ -4,4 +4,10 @@ members = [
     "parser",
     "interpreter",
     "jit",
+    "llvm",
 ]
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
