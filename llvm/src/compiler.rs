@@ -101,20 +101,19 @@ impl<const N: u64> Compiler<N> {
                     let memptr_value = builder
                         .build_load(i64_type, memptr, "move_idx")?
                         .into_int_value();
-                    let add = builder.build_int_add(
+                    let mut add = builder.build_int_add(
                         memptr_value,
                         i64_type.const_int(n as u64, false),
                         "move_idx_add",
                     )?;
 
-                    // Using urem/srem causes execution times to inflate...
-                    // TODO: why?
-                    //
-                    // let result = builder.build_int_signed_rem(
-                    //     add,
-                    //     i64_type.const_int(N, false),
-                    //     "move_idx_rem",
-                    // )?;
+                    if ARGS.safe {
+                        add = builder.build_int_signed_rem(
+                            add,
+                            i64_type.const_int(N, false),
+                            "move_idx_rem",
+                        )?;
+                    }
 
                     builder.build_store(memptr, add)?;
                 }

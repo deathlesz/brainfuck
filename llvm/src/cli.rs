@@ -24,6 +24,8 @@ pub struct Cli {
     pub run: bool,
     #[arg(value_enum, short = 'e', long, default_value = "object")]
     pub emit: Emit,
+    #[arg(short, long, help = "Enable bounds check on >/<. Can be really slow")]
+    pub safe: bool,
     #[arg(short = 'O', help = "Enable optimization passes")]
     pub optimize: bool,
 }
