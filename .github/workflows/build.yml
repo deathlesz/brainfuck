@@ -28,10 +28,8 @@ jobs:
         uses: rui314/setup-mold@v1
       - name: Update Rust Toolchain
         run: rustup update nightly --no-self-update && rustup default nightly
-      - name: Install llvmenv
-        run: cargo install llvmenv
-      - name: Build LLVM
-        run: llvmenv init && llvmenv entries && llvmenv build-entry 18.1
+      - name: Install LLVM
+        run: sudo apt install libllvm-18-ocaml-dev libllvm18 llvm-18 llvm-18-dev llvm-18-doc llvm-18-examples llvm-18-runtime
       - name: Cache dependencies
         uses: actions/cache@v4
         with:
