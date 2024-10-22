@@ -4,7 +4,7 @@
 An optimizing interpreter, JIT compiler and LLVM frontend all-in-one for [Brainfuck](https://brainfuck.org/brainfuck.html).
 ## Installation
 
-I hate GitHub Actions, so you can only build it yourself. ¯\\_(ツ)_/¯ 
+I hate GitHub Actions, so you can only build it yourself. ¯\\\_(ツ)_/¯ 
 
 ### Building
 - Clone this repository using `git`:
