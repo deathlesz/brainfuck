@@ -1,0 +1,50 @@
+name: Build and Upload Artifacts
+
+on: workflow_dispatch
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -Z threads=6
+
+jobs:
+  build:
+    name: Build
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            binary: [interpreter,jit,llvm]
+            cargo-command: build
+          - os: macos-latest
+            binary: [interpreter,jit,llvm]
+            cargo-command: --config "target.x86_64-apple-darwin.rustflags='-Clinker=clang,-Clink-arg=-fuse-ld=lld'" build
+          - os: windows-latest
+            binary: [interpret.exe,jit.exe,llvm.exe]
+            cargo-command: build
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - if: matrix.os == 'ubuntu-latest'
+        uses: rui314/setup-mold@v1
+      - name: Update Rust Toolchain
+        run: rustup update nightly --no-self-update && rustup default nightly
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          key: ${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('**/Cargo.toml') }}
+          path: |
+            target/release/.fingerprint
+            target/release/build
+            target/release/deps
+            target/release/incremental
+      - name: Build
+        run: cargo ${{ matrix.cargo-command }} --release --verbose
+      - name: Tarball binary
+        run: tar -C target/release -cvf ${{ matrix.binary }}.tar ${{ matrix.binary }}
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.binary }}-${{ matrix.os }}
+          path: ${{ matrix.binary }}.tar
+          if-no-files-found: error
+          compression-level: 0
