@@ -24,14 +24,14 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@v2
-        with:
-          version: "18"
       - if: matrix.os == 'ubuntu-latest'
         uses: rui314/setup-mold@v1
       - name: Update Rust Toolchain
         run: rustup update nightly --no-self-update && rustup default nightly
+      - name: Install llvmenv
+        run: cargo install llvmenv
+      - name: Build LLVM
+        run: llvmenv init && llvmenv entries && llvmenv build-entry 18.1
       - name: Cache dependencies
         uses: actions/cache@v4
         with:
