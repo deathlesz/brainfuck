@@ -24,6 +24,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - name: Install LLVM and Clang
+        uses: KyleMayes/install-llvm-action@v2
+        with:
+          version: "18"
       - if: matrix.os == 'ubuntu-latest'
         uses: rui314/setup-mold@v1
       - name: Update Rust Toolchain
