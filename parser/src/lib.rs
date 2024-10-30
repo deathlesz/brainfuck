@@ -126,7 +126,7 @@ impl<'a> Parser<'a> {
 
         match self.instructions.as_slice() {
             // 255 is actually -1
-            &[.., JumpIfZero(_), Add(255), Move(x), Add(1), Move(y)] if x.abs_diff(y) == 0 => {
+            &[.., JumpIfZero(_), Add(255), Move(x), Add(1), Move(y)] if x - y.abs() == 0 => {
                 self.remove_n(5);
 
                 Some(Instruction::AddTo(x))
