@@ -231,16 +231,19 @@ impl<const N: u64> Compiler<N> {
                         .build_load(i64_type, memptr, "add_to_idx")?
                         .into_int_value();
 
-                    let add = builder.build_int_add(
+                    let mut add = builder.build_int_add(
                         memptr_value,
                         i64_type.const_int(n as u64, false),
                         "add_to_idx_add",
                     )?;
-                    let rem = builder.build_int_unsigned_rem(
-                        add,
-                        i64_type.const_int(N, false),
-                        "add_to_idx_rem",
-                    )?;
+
+                    if ARGS.safe {
+                        add = builder.build_int_signed_rem(
+                            add,
+                            i64_type.const_int(N, false),
+                            "add_to_idx_rem",
+                        )?;
+                    }
 
                     let (elptr_current, elptr_to) = unsafe {
                         (
@@ -253,7 +256,7 @@ impl<const N: u64> Compiler<N> {
                             builder.build_in_bounds_gep(
                                 array_type,
                                 memory,
-                                &[i64_type.const_zero(), rem],
+                                &[i64_type.const_zero(), add],
                                 "add_to_elptr_to",
                             )?,
                         )
@@ -268,8 +271,8 @@ impl<const N: u64> Compiler<N> {
 
                     let add = builder.build_int_add(value_to, value_current, "add_to_add")?;
                     builder.build_store(elptr_to, add)?;
+                    builder.build_store(elptr_current, i8_type.const_zero())?;
                 }
-                _ => {}
             }
         }
 
