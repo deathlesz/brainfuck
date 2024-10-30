@@ -9,6 +9,7 @@ pub enum Instruction {
     JumpIfZero(usize),
     JumpIfNotZero(usize),
 
+    #[cfg(feature = "optimize_clear")]
     Clear,
     #[cfg(feature = "optimize_add_to")]
     AddTo(isize),
@@ -34,6 +35,7 @@ impl Display for Instruction {
             Out => ",".into(),
             JumpIfZero(_) => "[".into(),
             JumpIfNotZero(_) => "]".into(),
+            #[cfg(feature = "optimize_clear")]
             Clear => "[-]".into(),
             #[cfg(feature = "optimize_add_to")]
             AddTo(offset) => {

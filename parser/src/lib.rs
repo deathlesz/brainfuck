@@ -101,6 +101,7 @@ impl<'a> Parser<'a> {
         Instruction::Move(acc)
     }
 
+    #[cfg(feature = "optimize_clear")]
     fn try_parse_clear(&mut self) -> Option<Instruction> {
         use Instruction::*;
 
@@ -112,6 +113,11 @@ impl<'a> Parser<'a> {
             }
             _ => None,
         }
+    }
+
+    #[cfg(not(feature = "optimize_clear"))]
+    fn try_parse_clear(&mut self) -> Option<Instruction> {
+        None
     }
 
     #[cfg(feature = "optimize_add_to")]
@@ -154,6 +160,7 @@ impl<'a> Parser<'a> {
     }
 
     #[cfg(any(
+        feature = "optimize_clear",
         feature = "optimize_add_to",
         feature = "optimize_move_until_zero"
     ))]
