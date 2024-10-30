@@ -8,6 +8,7 @@ use inkwell::{
     context::Context,
     passes::PassBuilderOptions,
     targets::{CodeModel, RelocMode, Target, TargetMachine, TargetTriple},
+    values::BasicValue as _,
     OptimizationLevel,
 };
 
@@ -120,6 +121,20 @@ impl<const N: u64> Compiler<N> {
                 In => {
                     let call = builder.build_call(getchar_fn, &[], "getchar")?;
                     let char = call.try_as_basic_value().left().unwrap(); // ?
+
+                    let cmp = builder.build_int_compare(
+                        inkwell::IntPredicate::EQ,
+                        char.into_int_value(),
+                        i8_type.const_int(u64::MAX, false),
+                        "in_eof_cmp",
+                    )?;
+
+                    let char = builder.build_select(
+                        cmp,
+                        i8_type.const_int(0, false).as_basic_value_enum(),
+                        char,
+                        "in_eof_zero",
+                    )?;
 
                     let memptr_value = builder
                         .build_load(i64_type, memptr, "in_idx")?
