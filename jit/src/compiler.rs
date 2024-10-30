@@ -128,7 +128,7 @@ impl<const N: i32> Compiler<N> {
                         ; mov BYTE [r12 + r13], 0
                     }
                 }
-                MoveUntil(n) => {
+                MoveUntilZero(n) => {
                     let n = n as i32;
 
                     dynasm! { ops

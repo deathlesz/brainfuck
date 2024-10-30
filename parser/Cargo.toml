@@ -6,6 +6,6 @@ edition = "2021"
 [dependencies]
 
 [features]
-default = ["optimize_add_to", "optimize_move_until"]
+default = [optimize_add_to", "optimize_move_until_zero"]
 optimize_add_to = []
-optimize_move_until = []
+optimize_move_until_zero = []

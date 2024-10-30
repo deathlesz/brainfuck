@@ -97,7 +97,7 @@ impl<const N: u64> Compiler<N> {
                         builder.build_int_add(value, i8_type.const_int(n as u64, false), "add")?;
                     builder.build_store(elptr, add)?;
                 }
-                Move(n) if n != 0 => {
+                Move(n) => {
                     let memptr_value = builder
                         .build_load(i64_type, memptr, "move_idx")?
                         .into_int_value();

@@ -28,7 +28,7 @@ fn main() -> Result<()> {
         }
     };
 
-    let parser = parser::Parser::new(source);
+    let parser = parser::Parser::new(&source);
     let instructions = parser.parse().wrap_err("failed to parse")?;
 
     let interpreter = interpreter::Interpreter::<30_000>::new(instructions);

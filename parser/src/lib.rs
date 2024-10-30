@@ -4,26 +4,27 @@ pub use instruction::Instruction;
 mod error;
 mod instruction;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
-pub struct Parser {
-    contents: Vec<u8>,
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Parser<'a> {
+    contents: &'a [u8],
     idx: usize,
-    tokens: Vec<Instruction>,
+    instructions: Vec<Instruction>,
     jump_stack: Vec<(usize, usize)>,
 }
 
-impl Parser {
-    pub fn new(contents: Vec<u8>) -> Self {
+impl<'a> Parser<'a> {
+    pub fn new(contents: &'a [u8]) -> Self {
         Self {
             contents,
             idx: 0,
-            ..Default::default()
+            instructions: Vec::new(),
+            jump_stack: Vec::new(),
         }
     }
 
     pub fn parse(mut self) -> Result<Vec<Instruction>, UnbalancedBrackets> {
         while let Some(byte) = self.next() {
-            let token = match byte {
+            let instruction = match byte {
                 b'+' => self.parse_add(1),
                 b'-' => self.parse_add(1u8.wrapping_neg()),
                 b'>' => self.parse_move(1),
@@ -31,7 +32,8 @@ impl Parser {
                 b',' => Instruction::In,
                 b'.' => Instruction::Out,
                 b'[' => {
-                    self.jump_stack.push((self.tokens.len(), self.idx - 1));
+                    self.jump_stack
+                        .push((self.instructions.len(), self.idx - 1));
 
                     Instruction::JumpIfZero(0)
                 }
@@ -41,10 +43,11 @@ impl Parser {
                             clear
                         } else if let Some(add_to) = self.try_parse_add_to() {
                             add_to
-                        } else if let Some(move_until) = self.try_parse_move_until_0() {
+                        } else if let Some(move_until) = self.try_parse_move_until_zero() {
                             move_until
                         } else {
-                            self.tokens[idx] = Instruction::JumpIfZero(self.tokens.len());
+                            self.instructions[idx] =
+                                Instruction::JumpIfZero(self.instructions.len());
 
                             Instruction::JumpIfNotZero(idx)
                         }
@@ -55,14 +58,17 @@ impl Parser {
                 _ => continue,
             };
 
-            self.tokens.push(token);
+            match instruction {
+                Instruction::Add(0) | Instruction::Move(0) => {}
+                _ => self.instructions.push(instruction),
+            }
         }
 
         if let Some((_, idx)) = self.jump_stack.pop() {
             return Err(UnbalancedBrackets::UnclosedBracket(idx));
         }
 
-        Ok(self.tokens)
+        Ok(self.instructions)
     }
 
     fn parse_add(&mut self, mut acc: u8) -> Instruction {
@@ -98,7 +104,7 @@ impl Parser {
     fn try_parse_clear(&mut self) -> Option<Instruction> {
         use Instruction::*;
 
-        match self.tokens.as_slice() {
+        match self.instructions.as_slice() {
             [.., JumpIfZero(_), Add(n)] if n % 2 == 1 => {
                 self.remove_n(2);
 
@@ -112,7 +118,7 @@ impl Parser {
     fn try_parse_add_to(&mut self) -> Option<Instruction> {
         use Instruction::*;
 
-        match self.tokens.as_slice() {
+        match self.instructions.as_slice() {
             // 255 is actually -1
             &[.., JumpIfZero(_), Add(255), Move(x), Add(1), Move(y)] if x.abs_diff(y) == 0 => {
                 self.remove_n(5);
@@ -128,27 +134,31 @@ impl Parser {
         None
     }
 
-    #[cfg(not(feature = "optimize_move_until"))]
-    fn try_parse_move_until_0(&mut self) -> Option<Instruction> {
-        None
-    }
-
-    #[cfg(feature = "optimize_move_until")]
-    fn try_parse_move_until_0(&mut self) -> Option<Instruction> {
+    #[cfg(feature = "optimize_move_until_zero")]
+    fn try_parse_move_until_zero(&mut self) -> Option<Instruction> {
         use Instruction::*;
 
-        match self.tokens.as_slice() {
+        match self.instructions.as_slice() {
             &[.., JumpIfZero(_), Move(n)] => {
                 self.remove_n(2);
 
-                Some(Instruction::MoveUntil(n))
+                Some(Instruction::MoveUntilZero(n))
             }
             _ => None,
         }
     }
 
+    #[cfg(not(feature = "optimize_move_until_zero"))]
+    fn try_parse_move_until_zero(&mut self) -> Option<Instruction> {
+        None
+    }
+
+    #[cfg(any(
+        feature = "optimize_add_to",
+        feature = "optimize_move_until_zero"
+    ))]
     fn remove_n(&mut self, count: usize) {
-        self.tokens.drain(self.tokens.len() - count..);
+        self.instructions.drain(self.instructions.len() - count..);
     }
 
     fn next(&mut self) -> Option<u8> {

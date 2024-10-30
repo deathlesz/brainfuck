@@ -12,8 +12,8 @@ pub enum Instruction {
     Clear,
     #[cfg(feature = "optimize_add_to")]
     AddTo(isize),
-    #[cfg(feature = "optimize_move_until")]
-    MoveUntil(isize),
+    #[cfg(feature = "optimize_move_until_zero")]
+    MoveUntilZero(isize),
 }
 
 impl Display for Instruction {
@@ -44,8 +44,8 @@ impl Display for Instruction {
 
                 format!("[-{moves}+{moves_opposite}]")
             }
-            #[cfg(feature = "optimize_move_until")]
-            MoveUntil(count) => {
+            #[cfg(feature = "optimize_move_until_zero")]
+            MoveUntilZero(count) => {
                 let symbol = if count < 0 { "<" } else { ">" };
 
                 format!("[{}]", symbol.repeat(count as usize))

@@ -63,7 +63,7 @@ impl<const N: usize> Interpreter<N> {
                     self.memory[to] = self.memory[to].wrapping_add(self.memory[self.memptr]);
                     self.memory[self.memptr] = 0;
                 }
-                MoveUntil(n) => {
+                MoveUntilZero(n) => {
                     let n = (Self::LENGTH + n % Self::LENGTH) as usize;
                     while self.memory[self.memptr] != 0 {
                         self.memptr = (self.memptr + n) % Self::LENGTH as usize;
