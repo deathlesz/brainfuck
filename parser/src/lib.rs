@@ -179,3 +179,70 @@ impl<'a> Parser<'a> {
         self.contents.get(self.idx).copied()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Instruction::*, *};
+
+    macro_rules! test {
+        ($(#[$attr:meta])? $name:ident, $input:expr => $output:expr) => {
+            #[test]
+            $(#[$attr])?
+            fn $name() {
+                let parser = Parser::new($input);
+                let result = parser.parse().expect("failed to parse");
+
+                assert_eq!(&result, $output)
+            }
+        };
+    }
+
+    test!(parse_empty, b"" => &[]);
+    test!(
+        parse_add,
+        b"+++-+--++++----+++----+++--" =>
+        &[Add(1)]
+    );
+    test!(parse_zero_add, b"+++--+++--+-++--+---" => &[]);
+    test!(
+        parse_move,
+        b"<<<>>><><<><>>>><><><<<><><><>>><<<>><><>>>>>><>><<<<>" =>
+        &[Move(4)]
+    );
+    test!(parse_zero_move, b">>><<>>><<><>><<><<<" => &[]);
+    test!(parse_in, b",,,,,,,,,," => &[Instruction::In].repeat(10));
+    test!(parse_out, b".........." => &[Instruction::Out].repeat(10));
+    test!(
+        parse_jz_jnz,
+        b"[[[[][]][[[]]]][[]]]" =>
+        &[JumpIfZero(19), JumpIfZero(14), JumpIfZero(7), JumpIfZero(4), JumpIfNotZero(3), JumpIfZero(6), JumpIfNotZero(5), JumpIfNotZero(2), JumpIfZero(13), JumpIfZero(12), JumpIfZero(11), JumpIfNotZero(10), JumpIfNotZero(9), JumpIfNotZero(8), JumpIfNotZero(1), JumpIfZero(18), JumpIfZero(17), JumpIfNotZero(16), JumpIfNotZero(15), JumpIfNotZero(0)]
+    );
+    test!(
+        #[should_panic] parse_fail_jz_unbalanced,
+        b"[[+-++>><><><[++[[<<[>>>>[[+><><>>>]]<><>]" =>
+        &[]
+    );
+    test!(
+        #[should_panic] parse_fail_jnz_unbalanced,
+        b"[+++[<.,>>++<<<<>++--+]]]" =>
+        &[]
+    );
+    #[cfg(feature = "optimize_clear")]
+    test!(
+        parse_clear,
+        b"[-][+++][--][+>+++-]" =>
+        &[Clear, Clear, JumpIfZero(4), Add(2u8.wrapping_neg()), JumpIfNotZero(2), JumpIfZero(9), Add(1), Move(1), Add(2), JumpIfNotZero(5)]
+    );
+    #[cfg(feature = "optimize_add_to")]
+    test!(
+        parse_add_to,
+        b"[->>>+<<<]" =>
+        &[AddTo(3)]
+    );
+    #[cfg(feature = "optimize_move_until_zero")]
+    test!(
+        parse_move_until_zero,
+        b"[>>>][>][><><>>>>><>][>>>+<[>]]" =>
+        &[MoveUntilZero(3), MoveUntilZero(1), MoveUntilZero(5), JumpIfZero(8), Move(3), Add(1), Move(-1), MoveUntilZero(1), JumpIfNotZero(3)]
+    );
+}
