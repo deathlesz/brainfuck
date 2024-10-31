@@ -3,6 +3,7 @@ use std::sync::LazyLock;
 use clap::Parser as _;
 use cli::Cli;
 use color_eyre::{eyre::Context as _, Result};
+use parser::OptimizationOptions;
 
 mod cli;
 mod interpreter;
@@ -29,7 +30,9 @@ fn main() -> Result<()> {
     };
 
     let parser = parser::Parser::new(&source);
-    let instructions = parser.parse().wrap_err("failed to parse")?;
+    let instructions = parser
+        .parse(OptimizationOptions::all())
+        .wrap_err("failed to parse")?;
 
     let interpreter = interpreter::Interpreter::<30_000>::new(instructions);
     interpreter.run().wrap_err("failed to interpret")?;

@@ -1,8 +1,10 @@
 pub use error::UnbalancedBrackets;
 pub use instruction::Instruction;
+pub use opt::OptimizationOptions;
 
 mod error;
 mod instruction;
+mod opt;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Parser<'a> {
@@ -22,15 +24,28 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse(mut self) -> Result<Vec<Instruction>, UnbalancedBrackets> {
+    pub fn parse(
+        mut self,
+        opts: OptimizationOptions,
+    ) -> Result<Vec<Instruction>, UnbalancedBrackets> {
+        println!("{opts:?}");
+
         while let Some(byte) = self.next() {
+            println!("{byte}");
             let instruction = match byte {
-                b'+' => self.parse_add(1),
-                b'-' => self.parse_add(1u8.wrapping_neg()),
-                b'>' => self.parse_move(1),
-                b'<' => self.parse_move(-1),
+                b'+' if opts.contract => self.parse_add(1),
+                b'+' => Instruction::Add(1),
+                b'-' if opts.contract => self.parse_add(1u8.wrapping_neg()),
+                b'-' => Instruction::Add(1u8.wrapping_neg()),
+
+                b'>' if opts.contract => self.parse_move(1),
+                b'>' => Instruction::Move(1),
+                b'<' if opts.contract => self.parse_move(-1),
+                b'<' => Instruction::Move(-1),
+
                 b',' => Instruction::In,
                 b'.' => Instruction::Out,
+
                 b'[' => {
                     self.jump_stack
                         .push((self.instructions.len(), self.idx - 1));
@@ -39,11 +54,13 @@ impl<'a> Parser<'a> {
                 }
                 b']' => {
                     if let Some((idx, _)) = self.jump_stack.pop() {
-                        if let Some(clear) = self.try_parse_clear() {
+                        if let Some(clear) = self.try_parse_clear(opts.clear) {
                             clear
-                        } else if let Some(add_to) = self.try_parse_add_to() {
+                        } else if let Some(add_to) = self.try_parse_add_to(opts.add_to) {
                             add_to
-                        } else if let Some(move_until) = self.try_parse_move_until_zero() {
+                        } else if let Some(move_until) =
+                            self.try_parse_move_until_zero(opts.move_until_zero)
+                        {
                             move_until
                         } else {
                             self.instructions[idx] =
@@ -101,9 +118,12 @@ impl<'a> Parser<'a> {
         Instruction::Move(acc)
     }
 
-    #[cfg(feature = "optimize_clear")]
-    fn try_parse_clear(&mut self) -> Option<Instruction> {
+    fn try_parse_clear(&mut self, opt: bool) -> Option<Instruction> {
         use Instruction::*;
+
+        if !opt {
+            return None;
+        }
 
         match self.instructions.as_slice() {
             [.., JumpIfZero(_), Add(n)] if n % 2 == 1 => {
@@ -115,18 +135,16 @@ impl<'a> Parser<'a> {
         }
     }
 
-    #[cfg(not(feature = "optimize_clear"))]
-    fn try_parse_clear(&mut self) -> Option<Instruction> {
-        None
-    }
-
-    #[cfg(feature = "optimize_add_to")]
-    fn try_parse_add_to(&mut self) -> Option<Instruction> {
+    fn try_parse_add_to(&mut self, opt: bool) -> Option<Instruction> {
         use Instruction::*;
+
+        if !opt {
+            return None;
+        }
 
         match self.instructions.as_slice() {
             // 255 is actually -1
-            &[.., JumpIfZero(_), Add(255), Move(x), Add(1), Move(y)] if x - y.abs() == 0 => {
+            &[.., JumpIfZero(_), Add(255), Move(x), Add(1), Move(y)] if x.abs() - y.abs() == 0 => {
                 self.remove_n(5);
 
                 Some(Instruction::AddTo(x))
@@ -135,14 +153,12 @@ impl<'a> Parser<'a> {
         }
     }
 
-    #[cfg(not(feature = "optimize_add_to"))]
-    fn try_parse_add_to(&mut self) -> Option<Instruction> {
-        None
-    }
-
-    #[cfg(feature = "optimize_move_until_zero")]
-    fn try_parse_move_until_zero(&mut self) -> Option<Instruction> {
+    fn try_parse_move_until_zero(&mut self, opt: bool) -> Option<Instruction> {
         use Instruction::*;
+
+        if !opt {
+            return None;
+        }
 
         match self.instructions.as_slice() {
             &[.., JumpIfZero(_), Move(n)] => {
@@ -154,16 +170,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    #[cfg(not(feature = "optimize_move_until_zero"))]
-    fn try_parse_move_until_zero(&mut self) -> Option<Instruction> {
-        None
-    }
-
-    #[cfg(any(
-        feature = "optimize_clear",
-        feature = "optimize_add_to",
-        feature = "optimize_move_until_zero"
-    ))]
     fn remove_n(&mut self, count: usize) {
         self.instructions.drain(self.instructions.len() - count..);
     }
@@ -185,63 +191,65 @@ mod tests {
     use super::{Instruction::*, *};
 
     macro_rules! test {
-        ($(#[$attr:meta])? $name:ident, $input:expr => $output:expr) => {
+        ($(#[$attr:meta])? $name:ident($opts:expr), $input:expr => $output:expr) => {
             #[test]
             $(#[$attr])?
             fn $name() {
                 let parser = Parser::new($input);
-                let result = parser.parse().expect("failed to parse");
+                let result = parser.parse($opts).expect("failed to parse");
 
                 assert_eq!(&result, $output)
             }
         };
     }
 
-    test!(parse_empty, b"" => &[]);
+    test!(parse_empty(OptimizationOptions::new()), b"" => &[]);
     test!(
-        parse_add,
+        parse_add(OptimizationOptions::new().with_contract()),
         b"+++-+--++++----+++----+++--" =>
         &[Add(1)]
     );
-    test!(parse_zero_add, b"+++--+++--+-++--+---" => &[]);
+    test!(parse_zero_add(OptimizationOptions::new().with_contract()), b"+++--+++--+-++--+---" => &[]);
     test!(
-        parse_move,
+        parse_move(OptimizationOptions::new().with_contract()),
         b"<<<>>><><<><>>>><><><<<><><><>>><<<>><><>>>>>><>><<<<>" =>
         &[Move(4)]
     );
-    test!(parse_zero_move, b">>><<>>><<><>><<><<<" => &[]);
-    test!(parse_in, b",,,,,,,,,," => &[Instruction::In].repeat(10));
-    test!(parse_out, b".........." => &[Instruction::Out].repeat(10));
+    test!(parse_zero_move(OptimizationOptions::new().with_contract()), b">>><<>>><<><>><<><<<" => &[]);
+    test!(parse_in(OptimizationOptions::new()), b",,,,,,,,,," => &[Instruction::In].repeat(10));
+    test!(parse_out(OptimizationOptions::new()), b".........." => &[Instruction::Out].repeat(10));
     test!(
-        parse_jz_jnz,
+        parse_jz_jnz(OptimizationOptions::new()),
         b"[[[[][]][[[]]]][[]]]" =>
         &[JumpIfZero(19), JumpIfZero(14), JumpIfZero(7), JumpIfZero(4), JumpIfNotZero(3), JumpIfZero(6), JumpIfNotZero(5), JumpIfNotZero(2), JumpIfZero(13), JumpIfZero(12), JumpIfZero(11), JumpIfNotZero(10), JumpIfNotZero(9), JumpIfNotZero(8), JumpIfNotZero(1), JumpIfZero(18), JumpIfZero(17), JumpIfNotZero(16), JumpIfNotZero(15), JumpIfNotZero(0)]
     );
     test!(
-        #[should_panic] parse_fail_jz_unbalanced,
+        #[should_panic] parse_fail_jz_unbalanced(OptimizationOptions::new()),
         b"[[+-++>><><><[++[[<<[>>>>[[+><><>>>]]<><>]" =>
         &[]
     );
     test!(
-        #[should_panic] parse_fail_jnz_unbalanced,
+        #[should_panic] parse_fail_jnz_unbalanced(OptimizationOptions::new()),
         b"[+++[<.,>>++<<<<>++--+]]]" =>
         &[]
     );
-    #[cfg(feature = "optimize_clear")]
     test!(
-        parse_clear,
+        parse_clear(OptimizationOptions::new().with_contract().with_clear()),
         b"[-][+++][--][+>+++-]" =>
         &[Clear, Clear, JumpIfZero(4), Add(2u8.wrapping_neg()), JumpIfNotZero(2), JumpIfZero(9), Add(1), Move(1), Add(2), JumpIfNotZero(5)]
     );
-    #[cfg(feature = "optimize_add_to")]
     test!(
-        parse_add_to,
+        parse_add_to(OptimizationOptions::new().with_contract().with_add_to()),
         b"[->>>+<<<]" =>
         &[AddTo(3)]
     );
-    #[cfg(feature = "optimize_move_until_zero")]
     test!(
-        parse_move_until_zero,
+        parse_add_to_opposite(OptimizationOptions::new().with_contract().with_add_to()),
+        b"[-<<<+>>>]" =>
+        &[AddTo(-3)]
+    );
+    test!(
+        parse_move_until_zero(OptimizationOptions::new().with_contract().with_move_until_zero()),
         b"[>>>][>][><><>>>>><>][>>>+<[>]]" =>
         &[MoveUntilZero(3), MoveUntilZero(1), MoveUntilZero(5), JumpIfZero(8), Move(3), Add(1), Move(-1), MoveUntilZero(1), JumpIfNotZero(3)]
     );

@@ -4,9 +4,3 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-
-[features]
-default = ["optimize_clear", "optimize_add_to", "optimize_move_until_zero"]
-optimize_clear = []
-optimize_add_to = []
-optimize_move_until_zero = []

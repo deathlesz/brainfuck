@@ -273,6 +273,7 @@ impl<const N: u64> Compiler<N> {
                     builder.build_store(elptr_to, add)?;
                     builder.build_store(elptr_current, i8_type.const_zero())?;
                 }
+                _ => unimplemented!(),
             }
         }
 
