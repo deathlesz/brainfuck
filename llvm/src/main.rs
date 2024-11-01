@@ -31,7 +31,7 @@ fn main() -> Result<()> {
 
     let parser = parser::Parser::new(&source);
     let instructions = parser
-        .parse(OptimizationOptions::new().with_add_to().with_clear()) // MoveUntilZero is unimplemented
+        .parse(OptimizationOptions::new().with_multiply().with_clear()) // MoveUntilZero is unimplemented
         .wrap_err("failed to parse")?;
 
     let compiler = compiler::Compiler::<30_000>::new(instructions);

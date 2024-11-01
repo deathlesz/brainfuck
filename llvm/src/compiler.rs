@@ -226,22 +226,22 @@ impl<const N: u64> Compiler<N> {
 
                     builder.build_store(elptr, i8_type.const_zero())?;
                 }
-                AddTo(n) => {
+                Multiply(offset, by) => {
                     let memptr_value = builder
-                        .build_load(i64_type, memptr, "add_to_idx")?
+                        .build_load(i64_type, memptr, "multiply_idx")?
                         .into_int_value();
 
                     let mut add = builder.build_int_add(
                         memptr_value,
-                        i64_type.const_int(n as u64, false),
-                        "add_to_idx_add",
+                        i64_type.const_int(offset as u64, false),
+                        "multiply_idx_add",
                     )?;
 
                     if ARGS.safe {
                         add = builder.build_int_signed_rem(
                             add,
                             i64_type.const_int(N, false),
-                            "add_to_idx_rem",
+                            "multiply_idx_rem",
                         )?;
                     }
 
@@ -251,25 +251,34 @@ impl<const N: u64> Compiler<N> {
                                 array_type,
                                 memory,
                                 &[i64_type.const_zero(), memptr_value],
-                                "add_to_elptr_current",
+                                "multiply_elptr_current",
                             )?,
                             builder.build_in_bounds_gep(
                                 array_type,
                                 memory,
                                 &[i64_type.const_zero(), add],
-                                "add_to_elptr_to",
+                                "multiply_elptr_to",
                             )?,
                         )
                     };
 
                     let value_current = builder
-                        .build_load(i8_type, elptr_current, "add_to_value_current")?
+                        .build_load(i8_type, elptr_current, "multiply_value_current")?
                         .into_int_value();
                     let value_to = builder
-                        .build_load(i8_type, elptr_to, "add_to_value_to")?
+                        .build_load(i8_type, elptr_to, "multiply_value_to")?
                         .into_int_value();
 
-                    let add = builder.build_int_add(value_to, value_current, "add_to_add")?;
+                    let mul = if by != 1 {
+                        builder.build_int_mul(
+                            value_current,
+                            i8_type.const_int(by as u64, false),
+                            "multiply_mul",
+                        )?
+                    } else {
+                        value_current
+                    };
+                    let add = builder.build_int_add(value_to, mul, "multiply_add")?;
                     builder.build_store(elptr_to, add)?;
                     builder.build_store(elptr_current, i8_type.const_zero())?;
                 }

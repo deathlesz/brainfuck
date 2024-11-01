@@ -102,8 +102,8 @@ impl<const N: i32> Compiler<N> {
                     ; .arch x64
                     ; mov BYTE [r12+r13], 0
                 },
-                AddTo(n) => {
-                    let n = n as i32;
+                Multiply(offset, by) => {
+                    let n = offset as i32;
 
                     dynasm! { ops
                         ; .arch x64
@@ -123,7 +123,17 @@ impl<const N: i32> Compiler<N> {
                                 ; cmovns eax, ecx
                             }
                         }
-                        ; mov cl, [r12 + r13]
+                        ;;
+                        if by == 1 {
+                            dynasm! { ops
+                                ; mov cl, [r12 + r13]
+                            }
+                        } else {
+                            dynasm! { ops
+                                ; movzx ecx, [r12 + r13]
+                                ; imul ecx, ecx, by as i8 as i32
+                            }
+                        }
                         ; add BYTE [r12 + rax], cl
                         ; mov BYTE [r12 + r13], 0
                     }
@@ -199,7 +209,7 @@ impl<const N: i32> Compiler<N> {
         use std::io::Write;
 
         let mut stdout = std::io::stdout().lock();
-        let result = stdout.write_all(&[value]);
+        let result = write!(stdout, "{}", value as char);
 
         match result {
             Err(err) => Box::into_raw(Box::new(err)),

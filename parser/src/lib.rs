@@ -28,10 +28,7 @@ impl<'a> Parser<'a> {
         mut self,
         opts: OptimizationOptions,
     ) -> Result<Vec<Instruction>, UnbalancedBrackets> {
-        println!("{opts:?}");
-
         while let Some(byte) = self.next() {
-            println!("{byte}");
             let instruction = match byte {
                 b'+' if opts.contract => self.parse_add(1),
                 b'+' => Instruction::Add(1),
@@ -56,8 +53,8 @@ impl<'a> Parser<'a> {
                     if let Some((idx, _)) = self.jump_stack.pop() {
                         if let Some(clear) = self.try_parse_clear(opts.clear) {
                             clear
-                        } else if let Some(add_to) = self.try_parse_add_to(opts.add_to) {
-                            add_to
+                        } else if let Some(multiply) = self.try_parse_multiply(opts.multiply) {
+                            multiply
                         } else if let Some(move_until) =
                             self.try_parse_move_until_zero(opts.move_until_zero)
                         {
@@ -135,7 +132,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn try_parse_add_to(&mut self, opt: bool) -> Option<Instruction> {
+    fn try_parse_multiply(&mut self, opt: bool) -> Option<Instruction> {
         use Instruction::*;
 
         if !opt {
@@ -144,10 +141,10 @@ impl<'a> Parser<'a> {
 
         match self.instructions.as_slice() {
             // 255 is actually -1
-            &[.., JumpIfZero(_), Add(255), Move(x), Add(1), Move(y)] if x.abs() - y.abs() == 0 => {
+            &[.., JumpIfZero(_), Add(255), Move(x), Add(n), Move(y)] if x.abs() - y.abs() == 0 => {
                 self.remove_n(5);
 
-                Some(Instruction::AddTo(x))
+                Some(Instruction::Multiply(x, n))
             }
             _ => None,
         }
@@ -239,14 +236,14 @@ mod tests {
         &[Clear, Clear, JumpIfZero(4), Add(2u8.wrapping_neg()), JumpIfNotZero(2), JumpIfZero(9), Add(1), Move(1), Add(2), JumpIfNotZero(5)]
     );
     test!(
-        parse_add_to(OptimizationOptions::new().with_contract().with_add_to()),
+        parse_multiply_1(OptimizationOptions::new().with_contract().with_multiply()),
         b"[->>>+<<<]" =>
-        &[AddTo(3)]
+        &[Multiply(3, 1)]
     );
     test!(
-        parse_add_to_opposite(OptimizationOptions::new().with_contract().with_add_to()),
+        parse_multiply_1_opposite(OptimizationOptions::new().with_contract().with_multiply()),
         b"[-<<<+>>>]" =>
-        &[AddTo(-3)]
+        &[Multiply(-3, 1)]
     );
     test!(
         parse_move_until_zero(OptimizationOptions::new().with_contract().with_move_until_zero()),

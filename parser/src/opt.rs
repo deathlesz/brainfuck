@@ -2,7 +2,7 @@
 pub struct OptimizationOptions {
     pub contract: bool,
     pub clear: bool,
-    pub add_to: bool,
+    pub multiply: bool,
     pub move_until_zero: bool,
 }
 
@@ -22,7 +22,7 @@ impl OptimizationOptions {
         Self {
             contract: false,
             clear: false,
-            add_to: false,
+            multiply: false,
             move_until_zero: false,
         }
     }
@@ -31,13 +31,13 @@ impl OptimizationOptions {
         Self {
             contract: true,
             clear: true,
-            add_to: true,
+            multiply: true,
             move_until_zero: true,
         }
     }
 
     opt!(contract, with_contract);
     opt!(clear, with_clear);
-    opt!(add_to, with_add_to);
+    opt!(multiply, with_multiply);
     opt!(move_until_zero, with_move_until_zero);
 }

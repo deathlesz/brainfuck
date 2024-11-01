@@ -10,7 +10,7 @@ pub enum Instruction {
     JumpIfNotZero(usize),
 
     Clear,
-    AddTo(isize),
+    Multiply(isize, u8),
     MoveUntilZero(isize),
 }
 
@@ -18,36 +18,43 @@ impl Display for Instruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use Instruction::*;
 
-        let symbol = match *self {
+        match *self {
             Add(count) => {
                 let symbol = if (count as i8) < 0 { "-" } else { "+" };
-                symbol.repeat(count as usize)
+
+                write!(
+                    f,
+                    "{}",
+                    symbol.repeat((count as i8).unsigned_abs() as usize)
+                )
             }
             Move(count) => {
                 let symbol = if count < 0 { "<" } else { ">" };
 
-                symbol.repeat(count as usize)
+                write!(f, "{}", symbol.repeat(count.unsigned_abs()))
             }
-            In => ",".into(),
-            Out => ".".into(),
-            JumpIfZero(_) => "[".into(),
-            JumpIfNotZero(_) => "]".into(),
-            Clear => "[-]".into(),
-            AddTo(offset) => {
+            In => write!(f, ","),
+            Out => write!(f, "."),
+            JumpIfZero(_) => write!(f, "["),
+            JumpIfNotZero(_) => write!(f, "]"),
+            Clear => write!(f, "[-]"),
+            Multiply(offset, mult) => {
                 let (symbol, symbol_opposite) = if offset < 0 { ("<", ">") } else { (">", "<") };
+                let add = if (mult as i8) < 0 { "-" } else { "+" };
 
-                let moves = symbol.repeat(offset as usize);
-                let moves_opposite = symbol_opposite.repeat(offset as usize);
-
-                format!("[-{moves}+{moves_opposite}]")
+                write!(
+                    f,
+                    "[-{}{}{}]",
+                    symbol.repeat(offset as usize),
+                    add.repeat((mult as i8).unsigned_abs() as usize),
+                    symbol_opposite.repeat(offset as usize),
+                )
             }
             MoveUntilZero(count) => {
                 let symbol = if count < 0 { "<" } else { ">" };
 
-                format!("[{}]", symbol.repeat(count as usize))
+                write!(f, "[{}]", symbol.repeat(count.unsigned_abs()))
             }
-        };
-
-        write!(f, "{symbol}")
+        }
     }
 }
