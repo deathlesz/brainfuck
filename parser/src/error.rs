@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum UnbalancedBrackets {
     UnclosedBracket(usize),
     UnopenedBracket(usize),
